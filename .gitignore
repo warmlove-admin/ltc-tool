@@ -1,0 +1,20 @@
+# 資料檔一律忽略（避免個資進 repo）
+*.xlsx
+*.xls
+*.xlsm
+*.xlsb
+*.csv
+*.tsv
+*.ods
+*.numbers
+
+# 暫存與備份
+~$*
+*.tmp
+*.bak
+Thumbs.db
+.DS_Store
+
+# 若日後用到 Node/Tailwind CLI 的產物
+node_modules/
+npm-debug.log*
