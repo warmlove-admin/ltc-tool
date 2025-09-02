@@ -4,23 +4,21 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- CSP：只允許本機資源；腳本另外允許 tailwindcdn；允許 inline JS；允許 blob/data: -->
+  <!-- 完全離線版 CSP：僅允許本機資源；允許 blob:/data: 供下載；允許 inline JS/CSS -->
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self' blob: data:;
-                 script-src 'self' https://cdn.tailwindcss.com 'unsafe-inline';
+                 script-src 'self' 'unsafe-inline';
                  style-src 'self' 'unsafe-inline';
                  img-src 'self' data:;
                  connect-src 'none'">
 
-  <title>LTC 不通過清冊對照整理工具｜一鍵版 v2.3.1（2025-09-02）</title>
+  <title>LTC 不通過清冊對照整理工具｜一鍵版 v2.3.2（2025-09-02）</title>
   <link rel="icon" href="data:," />
 
-  <!-- Tailwind 先用 CDN（加版本字串避免快取） -->
-  <script src="https://cdn.tailwindcss.com?v=2025-09-02a"></script>
-
-  <!-- 本地外掛（加版本字串避免快取） -->
-  <script defer src="./vendor/xlsx.full.min.js?v=2025-09-02a"></script>
-  <script defer src="./vendor/papaparse.min.js?v=2025-09-02a"></script>
+  <!-- 本地樣式與外掛（加版本參數避免快取） -->
+  <link  rel="stylesheet" href="./vendor/tailwind.min.css?v=2025-09-02b">
+  <script defer src="./vendor/xlsx.full.min.js?v=2025-09-02b"></script>
+  <script defer src="./vendor/papaparse.min.js?v=2025-09-02b"></script>
 
   <style>
     :root{ --ink:#0f172a; --muted:#475569; --line:#e2e8f0; --bg:#f8fafc }
