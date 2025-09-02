@@ -3,18 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- CSP：只允許本機資源；腳本另外允許 tailwindcdn；允許 inline JS；允許 blob/data: -->
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self' blob: data:;
                  script-src 'self' https://cdn.tailwindcss.com 'unsafe-inline';
                  style-src 'self' 'unsafe-inline';
                  img-src 'self' data:;
-                 connect-src 'none';
-                 frame-ancestors 'none'">
-  <title>LTC 不通過清冊對照整理工具｜一鍵版 v2.3（間距優化）</title>
+                 connect-src 'none'">
+
+  <title>LTC 不通過清冊對照整理工具｜一鍵版 v2.3.1（2025-09-02）</title>
   <link rel="icon" href="data:," />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script defer src="./vendor/xlsx.full.min.js"></script>
-  <script defer src="./vendor/papaparse.min.js"></script>
+
+  <!-- Tailwind 先用 CDN（加版本字串避免快取） -->
+  <script src="https://cdn.tailwindcss.com?v=2025-09-02a"></script>
+
+  <!-- 本地外掛（加版本字串避免快取） -->
+  <script defer src="./vendor/xlsx.full.min.js?v=2025-09-02a"></script>
+  <script defer src="./vendor/papaparse.min.js?v=2025-09-02a"></script>
+
   <style>
     :root{ --ink:#0f172a; --muted:#475569; --line:#e2e8f0; --bg:#f8fafc }
     body{ color:var(--ink); background:var(--bg) }
