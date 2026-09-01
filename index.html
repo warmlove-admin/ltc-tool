@@ -29,6 +29,10 @@
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace }
     .btn{ border:1px solid var(--line); border-radius:.75rem; padding:.55rem 1rem }
     .btn-primary{ background:#0ea5e9; color:#fff; border-color:#0284c7 }
+    .blk{ background:#fff; border:1px solid var(--line); border-radius:.75rem; margin-bottom:1.1rem; box-shadow:0 2px 8px rgba(15,23,42,.05) }
+    .blk-pre{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:13.5px; line-height:1.7; white-space:pre-wrap; overflow-wrap:anywhere; margin:0; padding:.9rem 1rem .4rem; word-break:break-all }
+    .blk-ftr{ padding:.1rem 1rem .85rem }
+    .blk-ftr .btn{ font-size:13px; padding:.4rem .9rem }
   </style>
 </head>
 <body>
@@ -68,6 +72,20 @@
     <span id="status" class="text-slate-500 text-sm ml-2"></span>
   </section>
 
+  <section class="card p-5 mt-6">
+    <h3 class="font-semibold">篩選</h3>
+    <div class="mt-3 grid gap-3 sm:grid-cols-2">
+      <label class="block text-sm">
+        單位
+        <select id="filter-unit" class="mt-1 w-full border rounded px-3 py-2"><option value="__all__">全部</option></select>
+      </label>
+      <label class="block text-sm">
+        個管
+        <select id="filter-mgr" class="mt-1 w-full border rounded px-3 py-2"><option value="__all__">全部</option></select>
+      </label>
+    </div>
+  </section>
+
   <section class="grid lg:grid-cols-2 gap-4 mt-6">
     <div class="card p-5">
       <h3 class="font-semibold">輸出結果（可直接貼 LINE）</h3>
@@ -90,6 +108,19 @@ const onlyNumber = v => { if(v==null) return 0; if(typeof v==='number') return v
 const full2half = s => String(s||'').replace(/[！-～]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace(/[—–‑‑‒–—―﹣－]/g,'-').replace(/　/g,' ').toUpperCase();
 const trim = s => String(s||'').trim();
 const upper = s => String(s||'').toUpperCase();
+
+const escHtml = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function copyText(text, ok){
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(()=>ok(), ()=>{ legacyCopy(text); ok(); }); }
+  else{ legacyCopy(text); ok(); }
+}
+function legacyCopy(text){
+  const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+}
+
+let lastResult=null;
+function rerenderWithFilter(){ if(lastResult) render(lastResult); }
 
 function normalizeUnitName(s){
   if(!s) return s; const str=String(s);
@@ -248,24 +279,41 @@ function generateMessages(masterLong, masterWide, rejectRows){
   return {groups, unmatched, unknown:[...unknownSet]};
 }
 
+function populateFilters(groups){
+  const units=[...new Set(Object.keys(groups))].sort();
+  const mgrs=[...new Set(Object.values(groups).flatMap(m=>Object.keys(m)))].sort();
+  const uSel=$('#filter-unit'), mSel=$('#filter-mgr');
+  const curU=uSel.value, curM=mSel.value;
+  uSel.innerHTML='<option value="__all__">全部</option>'+units.map(u=>`<option value="${u}">${u}</option>`).join('');
+  mSel.innerHTML='<option value="__all__">全部</option>'+mgrs.map(m=>`<option value="${m}">${m}</option>`).join('');
+  if(units.includes(curU)) uSel.value=curU; else uSel.value='__all__';
+  if(mgrs.includes(curM)) mSel.value=curM; else mSel.value='__all__';
+}
+
 function render({groups, unmatched, unknown}){
+  lastResult={groups, unmatched, unknown};
   const res=$('#result'); res.innerHTML='';
   const warn=$('#warn'); const allText=[];
   if(unknown && unknown.length){ warn.textContent = '發現未定義單價的碼別：\n' + unknown.join('、') + '\n請先補齊價目表再重新執行（已停止輸出）。'; return; }
   warn.textContent = unmatched&&unmatched.length? unmatched.map(u=>`未對上：姓名:${u.case_name||''}\tID:${u.case_id||''}\t碼別:${u.code}`).join('\n') : '（全部順利對照）';
+  populateFilters(groups);
+  const uSel=$('#filter-unit').value, mSel=$('#filter-mgr').value;
 
   const makeBlock=(unit, mgr, cases)=>{ let lines=[]; lines.push(`${unit}（${mgr}）`); let i=1; for(const [cname, bucket] of Object.entries(cases)){ lines.push(`${i}. ${cname}`); for(const it of bucket.items){ lines.push(`     ${it.code} * ${fmtQty(it.qty)} = ${fmtMoney(it.amount)}`); } lines.push('------------------------------'); lines.push(`    不通過金額  ${fmtMoney(bucket.np_total)}`); lines.push(`    本月總使用額度  ${fmtMoney(bucket.month_total||0)}`); lines.push(''); i++; } lines.push('以上個案敬請個管協助額度設定與分配，謝謝!'); return lines.join('\n'); };
 
   for(const [unit, mgrs] of Object.entries(groups)){
+    if(uSel!=='__all__' && unit!==uSel) continue;
     for(const [mgr, cases] of Object.entries(mgrs)){
+      if(mSel!=='__all__' && mgr!==mSel) continue;
       const block = makeBlock(unit, mgr, cases); allText.push(block);
-      const card=document.createElement('div'); card.className='mb-5';
-      const ta=document.createElement('textarea'); ta.className='mono w-full h-48 p-3 border rounded'; ta.value=block;
-      const btn=document.createElement('button'); btn.className='mt-2 btn'; btn.textContent='複製本區'; btn.onclick=()=>{ ta.select(); document.execCommand('copy'); btn.textContent='已複製'; setTimeout(()=>btn.textContent='複製本區',1200); };
-      card.appendChild(ta); card.appendChild(btn); res.appendChild(card);
+      const card=document.createElement('div'); card.className='blk';
+      const pre=document.createElement('pre'); pre.className='blk-pre'; pre.innerHTML=escHtml(block);
+      const ftr=document.createElement('div'); ftr.className='blk-ftr';
+      const btn=document.createElement('button'); btn.className='btn'; btn.textContent='複製本區'; btn.onclick=()=>{ copyText(block, ()=>{ btn.textContent='已複製'; setTimeout(()=>btn.textContent='複製本區',1200); }); };
+      ftr.appendChild(btn); card.appendChild(pre); card.appendChild(ftr); res.appendChild(card);
     }
   }
-  const all=allText.join('\n\n'); $('#btn-copy-all').disabled = !all.length; $('#btn-download').disabled=!all.length; $('#btn-copy-all').onclick=()=>{ navigator.clipboard.writeText(all); alert('已複製全部輸出'); }; $('#btn-download').onclick=()=>{ const blob=new Blob([all],{type:'text/plain;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='LTC_不通過清冊對照輸出.txt'; a.click(); URL.revokeObjectURL(a.href); };
+  const all=allText.join('\n\n'); $('#btn-copy-all').disabled = !all.length; $('#btn-download').disabled=!all.length; $('#btn-copy-all').onclick=()=>{ copyText(all, ()=>alert('已複製全部輸出')); }; $('#btn-download').onclick=()=>{ const blob=new Blob([all],{type:'text/plain;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='LTC_不通過清冊對照輸出.txt'; a.click(); URL.revokeObjectURL(a.href); };
 }
 
 let fileMaster=null, fileReject=null;
@@ -280,6 +328,9 @@ setupDrop('#drop-reject', '#file-reject', '#reject-info', f=>{ fileReject=f; rej
 $('#btn-pick-master').onclick=()=> $('#file-master').click();
 $('#btn-pick-reject').onclick=()=> $('#file-reject').click();
 $('#btn-run').onclick=run;
+$('#filter-unit').onchange=rerenderWithFilter;
+$('#filter-mgr').onchange=rerenderWithFilter;
+['dragover','drop'].forEach(ev=> window.addEventListener(ev, e=> e.preventDefault()));
 </script>
 </body>
 </html>
