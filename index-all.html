@@ -12,10 +12,9 @@
                  img-src 'self' data:;
                  connect-src 'none'">
 
-  <title>LTC 不通過清冊對照整理工具｜一鍵版 v2.3.2（2025-09-02）</title>
+  <title>LTC 個案全覽輸出工具｜離線版 v1.0（2026-09-01）</title>
   <link rel="icon" href="data:," />
 
-  <!-- 本地樣式與外掛（加版本參數避免快取） -->
   <link  rel="stylesheet" href="./vendor/tailwind.min.css?v=2025-09-02b">
   <script defer src="./vendor/xlsx.full.min.js?v=2025-09-02b"></script>
   <script defer src="./vendor/papaparse.min.js?v=2025-09-02b"></script>
@@ -33,39 +32,41 @@
 </head>
 <body>
 <header class="max-w-5xl mx-auto px-4 lg:px-6 pt-8 pb-4">
-  <h1 class="text-2xl lg:text-3xl font-semibold">耆樂居家-申報不通過清冊核對工具(離線版) <span class="text-xs align-middle ml-2 px-2 py-0.5 rounded-full border">一鍵版 v2.3</span></h1>
-  <p class="mt-2 text-slate-600">只需上傳 <b>實際服務總表</b> 與 <b>不通過清冊</b>（Excel 或 CSV），系統自動：清洗 → 拆分（B/G/SC）→ 單價重算 → 對照 → 匯出可貼 LINE 的訊息。</p>
+  <h1 class="text-2xl lg:text-3xl font-semibold">LTC 個案全覽輸出工具（離線版） <span class="text-xs align-middle ml-2 px-2 py-0.5 rounded-full border">v1.0</span></h1>
+  <p class="mt-2 text-slate-600">上傳 <b>實際服務總表</b>，系統自動依<b>單位＋個管</b>分組，列出每位個案的碼別明細（項目 × 數量 = 金額）與本月總使用額度，不需上傳不通過清冊。</p>
 </header>
 
 <main class="max-w-5xl mx-auto px-4 lg:px-6 pb-24">
-  <section class="grid gap-4 lg:grid-cols-2">
-    <div class="card p-5">
-      <h2 class="text-lg font-semibold">① 上傳：實際服務總表（.xlsx 或 .csv）</h2>
-      <div id="drop-master" class="drop p-6 text-center mt-2">
-        <p>拖曳檔案到此，或點此選檔</p>
-        <input id="file-master" class="hidden" type="file" accept=".xlsx,.xls,.csv,.txt" />
-        <button class="mt-3 btn" id="btn-pick-master">選擇檔案</button>
-        <div id="master-info" class="mt-2 text-sm text-slate-500"></div>
-      </div>
-      <p class="text-xs text-slate-500 mt-2">規則：自動偵測表頭列（含「姓名」與「身分證字號」）。僅保留 B/C/O/P/V/AA/AG(或 AC)/AL/AQ/AS。</p>
+  <section class="card p-5">
+    <h2 class="text-lg font-semibold">① 上傳：實際服務總表（.xlsx 或 .csv）</h2>
+    <div id="drop-master" class="drop p-6 text-center mt-2">
+      <p>拖曳檔案到此，或點此選檔</p>
+      <input id="file-master" class="hidden" type="file" accept=".xlsx,.xls,.csv,.txt" />
+      <button class="mt-3 btn" id="btn-pick-master">選擇檔案</button>
+      <div id="master-info" class="mt-2 text-sm text-slate-500"></div>
     </div>
-    <div class="card p-5">
-      <h2 class="text-lg font-semibold">② 上傳：不通過清冊（.xlsx 或 .csv）</h2>
-      <div id="drop-reject" class="drop p-6 text-center mt-2">
-        <p>拖曳檔案到此，或點此選檔</p>
-        <input id="file-reject" class="hidden" type="file" accept=".xlsx,.xls,.csv,.txt" />
-        <button class="mt-3 btn" id="btn-pick-reject">選擇檔案</button>
-        <div id="reject-info" class="mt-2 text-sm text-slate-500"></div>
-      </div>
-      <p class="text-xs text-slate-500 mt-2">規則：XLSX 會忽略前 1–3 列，表頭取第 4 列；CSV 直接取第 1 列為表頭。只擷取「身分證字號／姓名／服務項目代碼／退件原因」。</p>
-    </div>
+    <p class="text-xs text-slate-500 mt-2">規則：自動偵測表頭列（含「姓名」與「身分證字號」）。僅保留 B/C/O/P/V/AA/AG(或 AC)/AL/AQ/AS。</p>
   </section>
 
   <section class="mt-6 flex gap-3">
-    <button id="btn-run" class="btn btn-primary">生成訊息</button>
+    <button id="btn-run" class="btn btn-primary">生成明細</button>
     <button id="btn-copy-all" class="btn" disabled>複製全部</button>
     <button id="btn-download" class="btn" disabled>下載 TXT</button>
     <span id="status" class="text-slate-500 text-sm ml-2"></span>
+  </section>
+
+  <section class="card p-5 mt-6">
+    <h3 class="font-semibold">篩選</h3>
+    <div class="mt-3 grid gap-3 sm:grid-cols-2">
+      <label class="block text-sm">
+        單位
+        <select id="filter-unit" class="mt-1 w-full border rounded px-3 py-2"><option value="__all__">全部</option></select>
+      </label>
+      <label class="block text-sm">
+        個管
+        <select id="filter-mgr" class="mt-1 w-full border rounded px-3 py-2"><option value="__all__">全部</option></select>
+      </label>
+    </div>
   </section>
 
   <section class="grid lg:grid-cols-2 gap-4 mt-6">
@@ -87,7 +88,7 @@ const $$ = (s, el=document)=> Array.from(el.querySelectorAll(s));
 const fmtMoney = n => (n==null||isNaN(n))? '0' : Number(n).toLocaleString('zh-TW',{maximumFractionDigits:0});
 const fmtQty = q => (q==null||isNaN(q))? '0' : String(Math.round(Number(q)));
 const onlyNumber = v => { if(v==null) return 0; if(typeof v==='number') return v; const s=String(v).replace(/[,，\s]/g,''); const f=parseFloat(s); return isNaN(f)?0:f; }
-const full2half = s => String(s||'').replace(/[！-～]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace(/[—–‑‑‒–—―﹣－]/g,'-').replace(/　/g,' ').toUpperCase();
+const full2half = s => String(s||'').replace(/[！-～]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace(/[—–‑‒–—―﹣－]/g,'-').replace(/　/g,' ').toUpperCase();
 const trim = s => String(s||'').trim();
 const upper = s => String(s||'').toUpperCase();
 
@@ -200,85 +201,120 @@ const DEFAULT_SEPS=['\n','、','；','，','; ',',','／','/'];
 function splitSegments(raw){ const S=full2half(String(raw||'')); let parts=[S]; for(const sep of DEFAULT_SEPS){ const next=[]; for(const p of parts){ next.push(...String(p).split(sep)); } parts=next; } return parts.map(x=>x.trim()).filter(Boolean); }
 function parseItemQty(seg){ const s=String(seg||'').trim(); const pats=[/^(\S+)\s*[xX＊×*]\s*(\d+(?:\.\d+)?)/,/^(\S+)\s*[（(]\s*(\d+(?:\.\d+)?)[^)]*[)）]/,/碼別[:：]?\s*(\S+)\s*[,，\s]*數量[:：]?\s*(\d+(?:\.\d+)?)/,/^(\S+)\s*[-–]\s*(\d+(?:\.\d+)?)/]; for(const re of pats){ const m=s.match(re); if(m){ const code=cleanCode(m[1]); if(!isSupportedCode(code)) return null; return {code, qty:Math.round(onlyNumber(m[2]))}; } } const num=s.match(/(\d+(?:\.\d+)?)(?!.*\d)/); const code=cleanCode(s.split(/\s+/)[0]); if(!isSupportedCode(code)) return null; return {code, qty: num?Math.round(onlyNumber(num[1])):0}; }
 
-function cleanReject(raw){
-  function pickHeader(keys){ return raw.headers.find(h=> keys.some(k=> h.includes(k))) || null; }
-  const hId = pickHeader(['個案身分證字號','身分證','身份證','證號','個案ID','個案代號']);
-  const hName = pickHeader(['個案姓名','姓名','使用者姓名']);
-  const hCode = pickHeader(['服務項目代碼','服務代碼','代碼','碼別']);
-  const hReason = pickHeader(['退件原因','原因','說明']);
-  if(!hCode || (!hId && !hName)) throw new Error('清冊缺必須欄位（身分證或姓名 + 服務項目代碼）。');
-  const seen=new Set(); const rows=[];
-  for(const r of raw.rows){
-    const id=full2half(trim(r[hId]||''));
-    const name=trim(r[hName]||'');
-    const code=cleanCode(trim(r[hCode]||''));
-    const reason=(r[hReason]||'');
-    if(!isSupportedCode(code)) continue;
-    const key=`${id||name}||${code}`; if(seen.has(key)) continue; seen.add(key);
-    rows.push({case_id:id, case_name:name, code, reason});
-  }
-  return rows;
-}
-
-function buildIndex(long){ const byId=new Map(), byName=new Map(); for(const r of long){ if(r['身分證字號']){ const k=r['身分證字號']; if(!byId.has(k)) byId.set(k,[]); byId.get(k).push(r);} if(r['姓名']){ const k=r['姓名']; if(!byName.has(k)) byName.set(k,[]); byName.get(k).push(r);} } return {byId, byName}; }
 function buildWideIndex(wide){ const byId=new Map(), byName=new Map(); for(const r of wide){ const id=full2half(r['身分證字號']||''); const name=r['姓名']||''; if(id){ if(!byId.has(id)) byId.set(id,[]); byId.get(id).push(r);} if(name){ if(!byName.has(name)) byName.set(name,[]); byName.get(name).push(r);} } return {byId, byName}; }
 function sumMonthTotal(rows){ if(!rows||!rows.length) return 0; let s=0; for(const r of rows){ s += onlyNumber(r['B碼使用額度']) + onlyNumber(r['G碼使用額度']) + onlyNumber(r['SC碼使用額度']); } return s; }
 
-function generateMessages(masterLong, masterWide, rejectRows){
-  const idx=buildIndex(masterLong); const idxW=buildWideIndex(masterWide);
-  const groups={}; const unmatched=[]; const unknownSet=new Set();
-  for(const r of rejectRows){
-    const rows = r.case_id? idx.byId.get(String(r.case_id)) : idx.byName.get(r.case_name);
-    const wideRows = r.case_id? idxW.byId.get(String(r.case_id)) : idxW.byName.get(r.case_name);
+function buildGroups(masterLong, masterWide){
+  const idxW=buildWideIndex(masterWide);
+  const groups={}; const emptyCases=[];
+  for(const r of masterLong){
+    const key = r['姓名'] || (r['身分證字號']?'ID:'+r['身分證字號']:'（未填姓名）');
+    const wideRows = r['身分證字號']? idxW.byId.get(String(r['身分證字號'])) : idxW.byName.get(r['姓名']);
     const monthTotal = sumMonthTotal(wideRows||[]);
-    if(!rows || !rows.length){ unmatched.push(r); continue; }
-    const items = rows.filter(x=> cleanCode(x['服務代碼'])===cleanCode(r.code));
-    if(!items.length){ unmatched.push(r); continue; }
-    const qty = items.reduce((s,x)=> s+onlyNumber(x['數量']||0), 0);
-    const code = cleanCode(r.code);
-    const price = PRICE.get(code); if(!price) unknownSet.add(code);
-    const amount = qty*price;
-    const unit = items[0]['A單位名稱']||'（未標示單位，請更新系統資訊）';
-    const mgr = items[0]['A個管姓名'] ? (items[0]['A個管姓名'] + ' 個管') : '（未標示個管，請更新系統資訊）';
-    const caseKey = r.case_name || (r.case_id?`ID:${r.case_id}`:'（未填姓名）');
-    groups[unit] ||= {}; groups[unit][mgr] ||= {}; groups[unit][mgr][caseKey] ||= {items:[], np_total:0, month_total:monthTotal};
-    groups[unit][mgr][caseKey].items.push({code, qty, amount});
-    groups[unit][mgr][caseKey].np_total += amount;
+    const unit = r['A單位名稱']||'（未標示單位）';
+    const mgr = r['A個管姓名'] ? (r['A個管姓名']+' 個管') : '（未標示個管）';
+    groups[unit] ||= {}; groups[unit][mgr] ||= {};
+    const bucket = groups[unit][mgr][key] ||= {items:{}, month_total:0};
+    bucket.items[r['服務代碼']] ||= {code:r['服務代碼'], qty:0, amount:0};
+    bucket.items[r['服務代碼']].qty += r['數量'];
+    bucket.items[r['服務代碼']].amount += r['小計'];
+    bucket.month_total = monthTotal;
   }
-  return {groups, unmatched, unknown:[...unknownSet]};
+  // 有 long 資料但沒出現的 wide（例如只有額度沒有項目）不輸出
+  return groups;
 }
 
-function render({groups, unmatched, unknown}){
+function makeBlock(unit, mgr, cases){
+  let lines=[];
+  lines.push(`${unit}（${mgr}）`);
+  let i=1;
+  for(const [cname, bucket] of Object.entries(cases)){
+    lines.push(`${i}. ${cname}`);
+    const items=Object.values(bucket.items).sort((a,b)=> a.code<b.code? -1 : 1);
+    for(const it of items){
+      lines.push(`     ${it.code} * ${fmtQty(it.qty)} = ${fmtMoney(it.amount)}`);
+    }
+    lines.push('------------------------------');
+    lines.push(`    本月總使用額度  ${fmtMoney(bucket.month_total||0)}`);
+    lines.push('');
+    i++;
+  }
+  if(!Object.keys(cases).length){ lines.push('（無個案資料）'); lines.push(''); }
+  lines.push('以上個案敬請個管協助額度設定與分配，謝謝!');
+  return lines.join('\n');
+}
+
+function renderFromGroups(groups){
   const res=$('#result'); res.innerHTML='';
-  const warn=$('#warn'); const allText=[];
-  if(unknown && unknown.length){ warn.textContent = '發現未定義單價的碼別：\n' + unknown.join('、') + '\n請先補齊價目表再重新執行（已停止輸出）。'; return; }
-  warn.textContent = unmatched&&unmatched.length? unmatched.map(u=>`未對上：姓名:${u.case_name||''}\tID:${u.case_id||''}\t碼別:${u.code}`).join('\n') : '（全部順利對照）';
-
-  const makeBlock=(unit, mgr, cases)=>{ let lines=[]; lines.push(`${unit}（${mgr}）`); let i=1; for(const [cname, bucket] of Object.entries(cases)){ lines.push(`${i}. ${cname}`); for(const it of bucket.items){ lines.push(`     ${it.code} * ${fmtQty(it.qty)} = ${fmtMoney(it.amount)}`); } lines.push('------------------------------'); lines.push(`    不通過金額  ${fmtMoney(bucket.np_total)}`); lines.push(`    本月總使用額度  ${fmtMoney(bucket.month_total||0)}`); lines.push(''); i++; } lines.push('以上個案敬請個管協助額度設定與分配，謝謝!'); return lines.join('\n'); };
-
+  const warn=$('#warn');
+  const uSel=$('#filter-unit').value, mSel=$('#filter-mgr').value;
+  const allText=[];
+  let blockCount=0, caseCount=0;
   for(const [unit, mgrs] of Object.entries(groups)){
+    if(uSel!=='__all__' && unit!==uSel) continue;
     for(const [mgr, cases] of Object.entries(mgrs)){
-      const block = makeBlock(unit, mgr, cases); allText.push(block);
+      if(mSel!=='__all__' && mgr!==mSel) continue;
+      const block = makeBlock(unit, mgr, cases); allText.push(block); blockCount++;
+      caseCount += Object.keys(cases).length;
       const card=document.createElement('div'); card.className='mb-5';
+      const head=document.createElement('div'); head.className='flex items-center justify-between mb-1';
+      const title=document.createElement('span'); title.className='font-semibold'; title.textContent=`${unit}（${mgr}）`;
+      head.appendChild(title); card.appendChild(head);
       const ta=document.createElement('textarea'); ta.className='mono w-full h-48 p-3 border rounded'; ta.value=block;
       const btn=document.createElement('button'); btn.className='mt-2 btn'; btn.textContent='複製本區'; btn.onclick=()=>{ ta.select(); document.execCommand('copy'); btn.textContent='已複製'; setTimeout(()=>btn.textContent='複製本區',1200); };
       card.appendChild(ta); card.appendChild(btn); res.appendChild(card);
     }
   }
-  const all=allText.join('\n\n'); $('#btn-copy-all').disabled = !all.length; $('#btn-download').disabled=!all.length; $('#btn-copy-all').onclick=()=>{ navigator.clipboard.writeText(all); alert('已複製全部輸出'); }; $('#btn-download').onclick=()=>{ const blob=new Blob([all],{type:'text/plain;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='LTC_不通過清冊對照輸出.txt'; a.click(); URL.revokeObjectURL(a.href); };
+  warn.textContent = blockCount===0 ? '查無符合篩選條件的資料。' : `共 ${blockCount} 個區塊、${caseCount} 位個案。`;
+  const all=allText.join('\n\n'); $('#btn-copy-all').disabled = !all.length; $('#btn-download').disabled=!all.length; $('#btn-copy-all').onclick=()=>{ navigator.clipboard.writeText(all); alert('已複製全部輸出'); }; $('#btn-download').onclick=()=>{ const blob=new Blob([all],{type:'text/plain;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='LTC_個案全覽輸出.txt'; a.click(); URL.revokeObjectURL(a.href); };
 }
 
-let fileMaster=null, fileReject=null;
-let masterParsed=null, rejectParsed=null;
-async function loadMaster(file){ const ext=(file.name.split('.').pop()||'').toLowerCase(); const isXLS= ['xlsx','xls'].includes(ext); $('#status').textContent='讀取實際服務總表…'; const raw = await parseAny(file, 'auto', false, /*filldown*/true); const cleaned = cleanMaster(raw); masterParsed=cleaned; if(cleaned.unknown.length){ render({groups:{},unmatched:[],unknown:cleaned.unknown}); $('#status').textContent=''; return; } $('#status').textContent=''; }
-async function loadReject(file){ const ext=(file.name.split('.').pop()||'').toLowerCase(); const isXLS= ['xlsx','xls'].includes(ext); $('#status').textContent='讀取不通過清冊…'; const raw = await parseAny(file, isXLS?4:1, /*removeTop*/false, /*filldown*/true); rejectParsed = cleanReject(raw); $('#status').textContent=''; }
-async function run(){ try{ if(!fileMaster || !fileReject){ alert('請先選擇兩個檔案'); return; } await loadMaster(fileMaster); await loadReject(fileReject); if(!masterParsed || !rejectParsed){ alert('檔案載入失敗，請再試一次'); return; } $('#status').textContent='比對與輸出…'; const result = generateMessages(masterParsed.long, masterParsed.wide, rejectParsed); render(result); $('#status').textContent='完成'; }catch(e){ console.error(e); alert('處理失敗：'+e.message); }}
+let fileMaster=null;
+let masterParsed=null;
+let allGroups=null;
+
+async function loadMaster(file){
+  $('#status').textContent='讀取實際服務總表…';
+  const raw = await parseAny(file, 'auto', false, true);
+  const cleaned = cleanMaster(raw);
+  masterParsed=cleaned;
+  if(cleaned.unknown.length){
+    $('#warn').textContent = '發現未定義單價的碼別：\n' + cleaned.unknown.join('、') + '\n請先補齊價目表再重新執行（已停止輸出）。';
+    $('#status').textContent='';
+    return;
+  }
+  $('#status').textContent='';
+}
+
+function populateFilters(groups){
+  const units=[...new Set(Object.keys(groups))].sort();
+  const mgrs=[...new Set(Object.values(groups).flatMap(m=>Object.keys(m)))].sort();
+  const uSel=$('#filter-unit'), mSel=$('#filter-mgr');
+  const curU=uSel.value, curM=mSel.value;
+  uSel.innerHTML='<option value="__all__">全部</option>'+units.map(u=>`<option value="${u}">${u}</option>`).join('');
+  mSel.innerHTML='<option value="__all__">全部</option>'+mgrs.map(m=>`<option value="${m}">${m}</option>`).join('');
+  if(units.includes(curU)) uSel.value=curU; else uSel.value='__all__';
+  if(mgrs.includes(curM)) mSel.value=curM; else mSel.value='__all__';
+}
+
+async function run(){
+  try{
+    if(!fileMaster){ alert('請先選擇實際服務總表'); return; }
+    await loadMaster(fileMaster);
+    if(!masterParsed){ alert('檔案載入失敗，請再試一次'); return; }
+    $('#status').textContent='分組與輸出…';
+    allGroups = buildGroups(masterParsed.long, masterParsed.wide);
+    populateFilters(allGroups);
+    $('#filter-unit').onchange=()=> renderFromGroups(allGroups);
+    $('#filter-mgr').onchange=()=> renderFromGroups(allGroups);
+    renderFromGroups(allGroups);
+    $('#status').textContent='完成';
+  }catch(e){ console.error(e); alert('處理失敗：'+e.message); }
+}
 
 function setupDrop(id, inputId, infoId, onPick){ const box=$(id), input=$(inputId), info=$(infoId); ['dragenter','dragover'].forEach(ev=> box.addEventListener(ev, e=>{e.preventDefault(); box.classList.add('drag')})); ['dragleave','drop'].forEach(ev=> box.addEventListener(ev, e=>{e.preventDefault(); box.classList.remove('drag')})); box.addEventListener('click', ()=> input.click()); box.addEventListener('drop', e=>{ const f=e.dataTransfer.files?.[0]; if(f){ input.files=e.dataTransfer.files; input.dispatchEvent(new Event('change')); }}); input.addEventListener('change', ()=>{ const f=input.files?.[0]; info.textContent = f?`已選擇：${f.name}（${Math.round(f.size/1024)} KB）`:''; if(f) onPick(f); }); }
-setupDrop('#drop-master', '#file-master', '#master-info', f=>{ fileMaster=f; masterParsed=null; });
-setupDrop('#drop-reject', '#file-reject', '#reject-info', f=>{ fileReject=f; rejectParsed=null; });
+setupDrop('#drop-master', '#file-master', '#master-info', f=>{ fileMaster=f; masterParsed=null; $('#filter-unit').innerHTML='<option value="__all__">全部</option>'; $('#filter-mgr').innerHTML='<option value="__all__">全部</option>'; });
 $('#btn-pick-master').onclick=()=> $('#file-master').click();
-$('#btn-pick-reject').onclick=()=> $('#file-reject').click();
 $('#btn-run').onclick=run;
 </script>
 </body>
