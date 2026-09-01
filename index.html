@@ -299,7 +299,7 @@ function render({groups, unmatched, unknown}){
   populateFilters(groups);
   const uSel=$('#filter-unit').value, mSel=$('#filter-mgr').value;
 
-  const makeBlock=(unit, mgr, cases)=>{ let lines=[]; lines.push(`${unit}（${mgr}）`); let i=1; for(const [cname, bucket] of Object.entries(cases)){ lines.push(`${i}. ${cname}`); for(const it of bucket.items){ lines.push(`     ${it.code} * ${fmtQty(it.qty)} = ${fmtMoney(it.amount)}`); } lines.push('------------------------------'); lines.push(`    不通過金額  ${fmtMoney(bucket.np_total)}`); lines.push(`    本月總使用額度  ${fmtMoney(bucket.month_total||0)}`); lines.push(''); i++; } lines.push('以上個案敬請個管協助額度設定與分配，謝謝!'); return lines.join('\n'); };
+  const makeBlock=(unit, mgr, cases)=>{ let lines=[]; lines.push(`${unit}（${mgr}）`); let i=1; for(const [cname, bucket] of Object.entries(cases)){ lines.push(`${i}. ${cname}`); for(const it of bucket.items){ lines.push(`     ${it.code} * ${fmtQty(it.qty)} = ${fmtMoney(it.amount)}`); } lines.push('------------------------------'); lines.push(`    本月總使用額度  ${fmtMoney(bucket.month_total||0)}`); lines.push(`    不通過金額  ${fmtMoney(bucket.np_total)}`); lines.push(''); i++; } lines.push('以上個案敬請個管協助額度設定與分配，謝謝!'); return lines.join('\n'); };
 
   for(const [unit, mgrs] of Object.entries(groups)){
     if(uSel!=='__all__' && unit!==uSel) continue;
