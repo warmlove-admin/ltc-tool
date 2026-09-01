@@ -37,7 +37,7 @@
 <body>
 <header class="max-w-5xl mx-auto px-4 lg:px-6 pt-8 pb-4">
   <h1 class="text-2xl lg:text-3xl font-semibold">LTC 個案全覽輸出工具（離線版） <span class="text-xs align-middle ml-2 px-2 py-0.5 rounded-full border">v1.0</span></h1>
-  <p class="mt-2 text-slate-600">上傳 <b>實際服務總表</b>，系統自動依<b>單位＋個管</b>分組，每位個案列出 <b>BA碼細項</b> 與 <b>GA09、SC09</b>（項目 × 數量 = 金額）及各種類本月總使用額度，不需上傳不通過清冊。</p>
+  <p class="mt-2 text-slate-600">上傳 <b>實際服務總表</b>，系統自動依<b>單位＋個管</b>分組，每位個案列出 <b>BA碼細項</b>（項目 × 數量 = 金額）與 <b>BA碼總使用額度</b>，並依 <b>GA09、SC09</b> 分段，不需上傳不通過清冊。</p>
 </header>
 
 <main class="max-w-5xl mx-auto px-4 lg:px-6 pb-24">
@@ -234,9 +234,10 @@ function buildGroups(masterLong, masterWide){
 }
 
 function makeBlock(unit, mgr, cases, month){
+  const SEP='------------------------';
   let lines=[];
   lines.push(`${unit}（${mgr}）`);
-  lines.push(`「${month}」月使用額度如下（月份隨實際服務月份更動）：`);
+  lines.push(`${month} 月使用額度如下：`);
   lines.push('');
   let i=1;
   for(const [cname, bucket] of Object.entries(cases)){
@@ -246,23 +247,19 @@ function makeBlock(unit, mgr, cases, month){
     const ba=sorted(items.filter(it=>it.code.startsWith('BA')));
     const ga=sorted(items.filter(it=>it.code.startsWith('GA')));
     const sc=sorted(items.filter(it=>it.code.startsWith('SC')));
+    const groups=[];
     if(ba.length){
-      for(const it of ba){
-        lines.push(`     ${it.code} * ${fmtQty(it.qty)} = ${fmtMoney(it.amount)}`);
-      }
-      lines.push(`    BA碼本月總使用額度  ${fmtMoney(ba.reduce((s,it)=>s+it.amount,0))}`);
+      groups.push([...ba.map(it=>`     ${it.code} * ${fmtQty(it.qty)} = ${fmtMoney(it.amount)}`), `    BA碼總使用額度  ${fmtMoney(ba.reduce((s,it)=>s+it.amount,0))}`]);
     }
     if(ga.length){
-      for(const it of ga){
-        lines.push(`     ${it.code} * ${fmtQty(it.qty)} = ${fmtMoney(it.amount)}`);
-      }
-      lines.push(`    GA09本月總使用額度  ${fmtMoney(ga.reduce((s,it)=>s+it.amount,0))}`);
+      groups.push(ga.map(it=>`     ${it.code} * ${fmtQty(it.qty)} = ${fmtMoney(it.amount)}`));
     }
     if(sc.length){
-      for(const it of sc){
-        lines.push(`     ${it.code} * ${fmtQty(it.qty)} = ${fmtMoney(it.amount)}`);
-      }
-      lines.push(`    SC09本月總使用額度  ${fmtMoney(sc.reduce((s,it)=>s+it.amount,0))}`);
+      groups.push(sc.map(it=>`     ${it.code} * ${fmtQty(it.qty)} = ${fmtMoney(it.amount)}`));
+    }
+    for(let g=0; g<groups.length; g++){
+      groups[g].forEach(l=>lines.push(l));
+      if(g < groups.length-1) lines.push(SEP);
     }
     lines.push('');
     i++;
