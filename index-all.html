@@ -33,7 +33,7 @@
 <body>
 <header class="max-w-5xl mx-auto px-4 lg:px-6 pt-8 pb-4">
   <h1 class="text-2xl lg:text-3xl font-semibold">LTC 個案全覽輸出工具（離線版） <span class="text-xs align-middle ml-2 px-2 py-0.5 rounded-full border">v1.0</span></h1>
-  <p class="mt-2 text-slate-600">上傳 <b>實際服務總表</b>，系統自動依<b>單位＋個管</b>分組，每位個案分 <b>BA碼／GA09／SC09</b> 三段落列出細項（項目 × 數量 = 金額）與各類本月總使用額度，不需上傳不通過清冊。</p>
+  <p class="mt-2 text-slate-600">上傳 <b>實際服務總表</b>，系統自動依<b>單位＋個管</b>分組，每位個案列出 <b>BA碼細項</b> 與 <b>GA09、SC09</b>（項目 × 數量 = 金額）及各種類本月總使用額度，不需上傳不通過清冊。</p>
 </header>
 
 <main class="max-w-5xl mx-auto px-4 lg:px-6 pb-24">
@@ -228,24 +228,30 @@ function makeBlock(unit, mgr, cases){
   let lines=[];
   lines.push(`${unit}（${mgr}）`);
   let i=1;
-  const secs=[
-    {label:'BA碼', key:'ba', test:c=>c.startsWith('BA')},
-    {label:'GA09', key:'ga', test:c=>c.startsWith('GA')},
-    {label:'SC09', key:'sc', test:c=>c.startsWith('SC')}
-  ];
   for(const [cname, bucket] of Object.entries(cases)){
     lines.push(`${i}. ${cname}`);
     const items=Object.values(bucket.items);
-    for(const sec of secs){
-      const secItems=items.filter(it=>sec.test(it.code)).sort((a,b)=> a.code<b.code? -1 : 1);
-      if(!secItems.length) continue;
-      const secTotal=secItems.reduce((s,it)=>s+it.amount,0);
-      lines.push(`    ${sec.label}：`);
-      for(const it of secItems){
+    const sorted=(arr)=>arr.sort((a,b)=> a.code<b.code? -1 : 1);
+    const baItems=sorted(items.filter(it=>it.code.startsWith('BA')));
+    const gaItems=sorted(items.filter(it=>it.code.startsWith('GA')));
+    const scItems=sorted(items.filter(it=>it.code.startsWith('SC')));
+    if(baItems.length){
+      lines.push('    BA碼：');
+      for(const it of baItems){
         lines.push(`     ${it.code} * ${fmtQty(it.qty)} = ${fmtMoney(it.amount)}`);
       }
       lines.push('------------------------------');
-      lines.push(`    ${sec.label}本月總使用額度  ${fmtMoney(secTotal)}`);
+      lines.push(`    BA碼本月總使用額度  ${fmtMoney(baItems.reduce((s,it)=>s+it.amount,0))}`);
+      lines.push('');
+    }
+    const other=[...gaItems, ...scItems];
+    if(other.length){
+      for(const it of other){
+        lines.push(`     ${it.code} * ${fmtQty(it.qty)} = ${fmtMoney(it.amount)}`);
+      }
+      lines.push('------------------------------');
+      if(gaItems.length) lines.push(`    GA09本月總使用額度  ${fmtMoney(gaItems.reduce((s,it)=>s+it.amount,0))}`);
+      if(scItems.length) lines.push(`    SC09本月總使用額度  ${fmtMoney(scItems.reduce((s,it)=>s+it.amount,0))}`);
       lines.push('');
     }
     i++;
