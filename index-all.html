@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- 完全離線版 CSP：僅允許本機資源；允許 blob:/data: 供下載；允許 inline JS/CSS -->
+  <!-- 離線版 CSP：file:// 下允許本機資源與 inline JS/CSS；允許 blob:/data: 供下載 -->
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self' blob: data:;
-                 script-src 'self' 'unsafe-inline';
-                 style-src 'self' 'unsafe-inline';
+        content="default-src 'self' file: blob: data:;
+                 script-src 'self' 'unsafe-inline' file:;
+                 style-src 'self' 'unsafe-inline' file:;
                  img-src 'self' data:;
                  connect-src 'none'">
 
@@ -28,6 +28,10 @@
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace }
     .btn{ border:1px solid var(--line); border-radius:.75rem; padding:.55rem 1rem }
     .btn-primary{ background:#0ea5e9; color:#fff; border-color:#0284c7 }
+    .blk{ background:#fff; border:1px solid var(--line); border-radius:.75rem; margin-bottom:1.1rem; box-shadow:0 2px 8px rgba(15,23,42,.05) }
+    .blk-pre{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:13.5px; line-height:1.7; white-space:pre-wrap; overflow-wrap:anywhere; margin:0; padding:.9rem 1rem .4rem; word-break:break-all }
+    .blk-ftr{ padding:.1rem 1rem .85rem }
+    .blk-ftr .btn{ font-size:13px; padding:.4rem .9rem }
   </style>
 </head>
 <body>
@@ -298,15 +302,12 @@ function renderFromGroups(groups){
       if(mSel!=='__all__' && mgr!==mSel) continue;
       const block = makeBlock(unit, mgr, cases, month); allText.push(block); blockCount++;
       caseCount += Object.keys(cases).length;
-      const card=document.createElement('div'); card.className='mb-5';
-      const head=document.createElement('div'); head.className='flex items-center justify-between mb-1';
-      const title=document.createElement('span'); title.className='font-semibold'; title.textContent=`${unit}（${mgr}）`;
-      head.appendChild(title); card.appendChild(head);
-      const pre=document.createElement('pre'); pre.className='mono w-full h-48 p-3 border rounded overflow-auto whitespace-pre-wrap'; pre.innerHTML=blockHtml(block);
-      const row=document.createElement('div'); row.className='mt-2 flex gap-2';
+      const card=document.createElement('div'); card.className='blk';
+      const pre=document.createElement('pre'); pre.className='blk-pre'; pre.innerHTML=blockHtml(block);
+      const ftr=document.createElement('div'); ftr.className='blk-ftr';
       const btn=document.createElement('button'); btn.className='btn'; btn.textContent='複製本區';
       btn.onclick=()=>{ copyText(block, ()=>{ btn.textContent='已複製'; setTimeout(()=>btn.textContent='複製本區',1200); }); };
-      row.appendChild(btn); card.appendChild(pre); card.appendChild(row); res.appendChild(card);
+      ftr.appendChild(btn); card.appendChild(pre); card.appendChild(ftr); res.appendChild(card);
     }
   }
   warn.textContent = blockCount===0 ? '查無符合篩選條件的資料。' : `共 ${blockCount} 個區塊、${caseCount} 位個案。`;
@@ -356,7 +357,8 @@ async function run(){
   }catch(e){ console.error(e); alert('處理失敗：'+e.message); }
 }
 
-function setupDrop(id, inputId, infoId, onPick){ const box=$(id), input=$(inputId), info=$(infoId); ['dragenter','dragover'].forEach(ev=> box.addEventListener(ev, e=>{e.preventDefault(); box.classList.add('drag')})); ['dragleave','drop'].forEach(ev=> box.addEventListener(ev, e=>{e.preventDefault(); box.classList.remove('drag')})); box.addEventListener('click', ()=> input.click()); box.addEventListener('drop', e=>{ const f=e.dataTransfer.files?.[0]; if(f){ input.files=e.dataTransfer.files; input.dispatchEvent(new Event('change')); }}); input.addEventListener('change', ()=>{ const f=input.files?.[0]; info.textContent = f?`已選擇：${f.name}（${Math.round(f.size/1024)} KB）`:''; if(f) onPick(f); }); }
+function setupDrop(id, inputId, infoId, onPick){ const box=$(id), input=$(inputId), info=$(infoId); ['dragenter','dragover'].forEach(ev=> box.addEventListener(ev, e=>{e.preventDefault(); box.classList.add('drag')})); ['dragleave','drop'].forEach(ev=> box.addEventListener(ev, e=>{e.preventDefault(); e.stopPropagation(); box.classList.remove('drag')})); box.addEventListener('click', ()=> input.click()); box.addEventListener('drop', e=>{ const f=e.dataTransfer.files?.[0]; if(f){ input.files=e.dataTransfer.files; input.dispatchEvent(new Event('change')); }}); input.addEventListener('change', ()=>{ const f=input.files?.[0]; info.textContent = f?`已選擇：${f.name}（${Math.round(f.size/1024)} KB）`:''; if(f) onPick(f); }); }
+['dragover','drop'].forEach(ev=> window.addEventListener(ev, e=> e.preventDefault()));
 $('#month-val').value = currentMonth();
 setupDrop('#drop-master', '#file-master', '#master-info', f=>{
   fileMaster=f; masterParsed=null;
