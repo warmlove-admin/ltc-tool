@@ -33,7 +33,7 @@
 <body>
 <header class="max-w-5xl mx-auto px-4 lg:px-6 pt-8 pb-4">
   <h1 class="text-2xl lg:text-3xl font-semibold">LTC 個案全覽輸出工具（離線版） <span class="text-xs align-middle ml-2 px-2 py-0.5 rounded-full border">v1.0</span></h1>
-  <p class="mt-2 text-slate-600">上傳 <b>實際服務總表</b>，系統自動依<b>單位＋個管</b>分組，列出每位個案的碼別明細（項目 × 數量 = 金額）與本月總使用額度，不需上傳不通過清冊。</p>
+  <p class="mt-2 text-slate-600">上傳 <b>實際服務總表</b>，系統自動依<b>單位＋個管</b>分組，每位個案分 <b>BA碼／GA09／SC09</b> 三段落列出細項（項目 × 數量 = 金額）與各類本月總使用額度，不需上傳不通過清冊。</p>
 </header>
 
 <main class="max-w-5xl mx-auto px-4 lg:px-6 pb-24">
@@ -202,7 +202,7 @@ function splitSegments(raw){ const S=full2half(String(raw||'')); let parts=[S]; 
 function parseItemQty(seg){ const s=String(seg||'').trim(); const pats=[/^(\S+)\s*[xX＊×*]\s*(\d+(?:\.\d+)?)/,/^(\S+)\s*[（(]\s*(\d+(?:\.\d+)?)[^)]*[)）]/,/碼別[:：]?\s*(\S+)\s*[,，\s]*數量[:：]?\s*(\d+(?:\.\d+)?)/,/^(\S+)\s*[-–]\s*(\d+(?:\.\d+)?)/]; for(const re of pats){ const m=s.match(re); if(m){ const code=cleanCode(m[1]); if(!isSupportedCode(code)) return null; return {code, qty:Math.round(onlyNumber(m[2]))}; } } const num=s.match(/(\d+(?:\.\d+)?)(?!.*\d)/); const code=cleanCode(s.split(/\s+/)[0]); if(!isSupportedCode(code)) return null; return {code, qty: num?Math.round(onlyNumber(num[1])):0}; }
 
 function buildWideIndex(wide){ const byId=new Map(), byName=new Map(); for(const r of wide){ const id=full2half(r['身分證字號']||''); const name=r['姓名']||''; if(id){ if(!byId.has(id)) byId.set(id,[]); byId.get(id).push(r);} if(name){ if(!byName.has(name)) byName.set(name,[]); byName.get(name).push(r);} } return {byId, byName}; }
-function sumMonthTotal(rows){ if(!rows||!rows.length) return 0; let s=0; for(const r of rows){ s += onlyNumber(r['B碼使用額度']) + onlyNumber(r['G碼使用額度']) + onlyNumber(r['SC碼使用額度']); } return s; }
+function sumMonthTotal(rows){ const o={ba:0,ga:0,sc:0}; if(rows && rows.length){ for(const r of rows){ o.ba += onlyNumber(r['B碼使用額度']); o.ga += onlyNumber(r['G碼使用額度']); o.sc += onlyNumber(r['SC碼使用額度']); } } return o; }
 
 function buildGroups(masterLong, masterWide){
   const idxW=buildWideIndex(masterWide);
@@ -210,15 +210,15 @@ function buildGroups(masterLong, masterWide){
   for(const r of masterLong){
     const key = r['姓名'] || (r['身分證字號']?'ID:'+r['身分證字號']:'（未填姓名）');
     const wideRows = r['身分證字號']? idxW.byId.get(String(r['身分證字號'])) : idxW.byName.get(r['姓名']);
-    const monthTotal = sumMonthTotal(wideRows||[]);
+    const totals = sumMonthTotal(wideRows||[]);
     const unit = r['A單位名稱']||'（未標示單位）';
     const mgr = r['A個管姓名'] ? (r['A個管姓名']+' 個管') : '（未標示個管）';
     groups[unit] ||= {}; groups[unit][mgr] ||= {};
-    const bucket = groups[unit][mgr][key] ||= {items:{}, month_total:0};
+    const bucket = groups[unit][mgr][key] ||= {items:{}, totals:{ba:0,ga:0,sc:0}};
     bucket.items[r['服務代碼']] ||= {code:r['服務代碼'], qty:0, amount:0};
     bucket.items[r['服務代碼']].qty += r['數量'];
     bucket.items[r['服務代碼']].amount += r['小計'];
-    bucket.month_total = monthTotal;
+    bucket.totals = totals;
   }
   // 有 long 資料但沒出現的 wide（例如只有額度沒有項目）不輸出
   return groups;
@@ -228,15 +228,26 @@ function makeBlock(unit, mgr, cases){
   let lines=[];
   lines.push(`${unit}（${mgr}）`);
   let i=1;
+  const secs=[
+    {label:'BA碼', key:'ba', test:c=>c.startsWith('BA')},
+    {label:'GA09', key:'ga', test:c=>c.startsWith('GA')},
+    {label:'SC09', key:'sc', test:c=>c.startsWith('SC')}
+  ];
   for(const [cname, bucket] of Object.entries(cases)){
     lines.push(`${i}. ${cname}`);
-    const items=Object.values(bucket.items).sort((a,b)=> a.code<b.code? -1 : 1);
-    for(const it of items){
-      lines.push(`     ${it.code} * ${fmtQty(it.qty)} = ${fmtMoney(it.amount)}`);
+    const items=Object.values(bucket.items);
+    for(const sec of secs){
+      const secItems=items.filter(it=>sec.test(it.code)).sort((a,b)=> a.code<b.code? -1 : 1);
+      if(!secItems.length) continue;
+      const secTotal=secItems.reduce((s,it)=>s+it.amount,0);
+      lines.push(`    ${sec.label}：`);
+      for(const it of secItems){
+        lines.push(`     ${it.code} * ${fmtQty(it.qty)} = ${fmtMoney(it.amount)}`);
+      }
+      lines.push('------------------------------');
+      lines.push(`    ${sec.label}本月總使用額度  ${fmtMoney(secTotal)}`);
+      lines.push('');
     }
-    lines.push('------------------------------');
-    lines.push(`    本月總使用額度  ${fmtMoney(bucket.month_total||0)}`);
-    lines.push('');
     i++;
   }
   if(!Object.keys(cases).length){ lines.push('（無個案資料）'); lines.push(''); }
