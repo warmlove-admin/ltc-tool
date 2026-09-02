@@ -191,10 +191,12 @@ function cleanMaster(raw){
     out.push(o);
   }
   const long=[]; const unknown=new Set();
-  const SRC=['B碼','G碼','SC碼'];
+  const SRC=[['B碼','B碼使用額度'],['G碼','G碼使用額度'],['SC碼','SC碼使用額度']];
   for(const r of out){
-    for(const src of SRC){
-      const val = r[src]; if(!val) continue;
+    for(const [src, usg] of SRC){
+      const val = r[src];
+      const used = onlyNumber(r[usg]);
+      if(!val || used <= 0) continue;
       for(const seg of splitSegments(val)){
         const pq = parseItemQty(seg); if(!pq || !pq.code) continue;
         const code = cleanCode(pq.code); if(!isSupportedCode(code)) continue;
