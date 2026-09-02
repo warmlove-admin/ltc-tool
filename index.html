@@ -264,14 +264,13 @@ function generateMessages(masterLong, masterWide, rejectRows){
   for(const r of rejectRows){
     const key = r.case_id || r.case_name;
     if(!key) continue;
-    if(!casesByName.has(key)){ casesByName.set(key, {case_id:r.case_id, case_name:r.case_name, codes:new Set()}); caseOrder.push(key); }
-    casesByName.get(key).codes.add(cleanCode(r.code));
+    if(!casesByName.has(key)){ casesByName.set(key, {case_id:r.case_id, case_name:r.case_name}); caseOrder.push(key); }
   }
   for(const key of caseOrder){
     const rc = casesByName.get(key);
     const rows = rc.case_id? idx.byId.get(String(rc.case_id)) : idx.byName.get(rc.case_name);
     if(!rows || !rows.length){
-      unmatched.push({case_id:rc.case_id, case_name:rc.case_name, code:[...rc.codes].join('、')});
+      unmatched.push({case_id:rc.case_id, case_name:rc.case_name});
       continue;
     }
     const itemMap=new Map();
@@ -290,10 +289,9 @@ function generateMessages(masterLong, masterWide, rejectRows){
     const mgr = rows[0]['A個管姓名'] ? (rows[0]['A個管姓名'] + ' 個管') : '（未標示個管，請更新系統資訊）';
     const caseKey = rc.case_name || (rc.case_id?`ID:${rc.case_id}`:'（未填姓名）');
     groups[unit] ||= {}; groups[unit][mgr] ||= {};
-    groups[unit][mgr][caseKey] ||= {items:[], np_codes:[], month_total:0};
+    groups[unit][mgr][caseKey] ||= {items:[], month_total:0};
     const bucket = groups[unit][mgr][caseKey];
     bucket.items = allCodes.map(code=>({code, qty:itemMap.get(code).qty, amount:itemMap.get(code).amount}));
-    bucket.np_codes = [...rc.codes].sort();
     bucket.month_total = monthTotal;
   }
   return {groups, unmatched, unknown:[...unknownSet]};
@@ -319,7 +317,7 @@ function render({groups, unmatched, unknown}){
   populateFilters(groups);
   const uSel=$('#filter-unit').value, mSel=$('#filter-mgr').value;
 
-  const makeBlock=(unit, mgr, cases)=>{ let lines=[]; lines.push(`${unit}（${mgr}）`); let i=1; for(const [cname, bucket] of Object.entries(cases)){ lines.push(`${i}. ${cname}`); for(const it of bucket.items){ lines.push(`     ${it.code} * ${fmtQty(it.qty)} = ${fmtMoney(it.amount)}`); } if(bucket.np_codes && bucket.np_codes.length){ lines.push('------------------------------'); lines.push(`    不通過碼別  ${bucket.np_codes.join('、')}`); } lines.push('------------------------------'); lines.push(`    本月總使用額度  ${fmtMoney(bucket.month_total||0)}`); lines.push(''); i++; } lines.push('以上個案敬請個管協助額度設定與分配，謝謝!'); return lines.join('\n'); };
+  const makeBlock=(unit, mgr, cases)=>{ let lines=[]; lines.push(`${unit}（${mgr}）`); let i=1; for(const [cname, bucket] of Object.entries(cases)){ lines.push(`${i}. ${cname}`); for(const it of bucket.items){ lines.push(`     ${it.code} * ${fmtQty(it.qty)} = ${fmtMoney(it.amount)}`); } lines.push('------------------------------'); lines.push(`    本月總使用額度  ${fmtMoney(bucket.month_total||0)}`); lines.push(''); i++; } lines.push('以上個案敬請個管協助額度設定與分配，謝謝!'); return lines.join('\n'); };
 
   for(const [unit, mgrs] of Object.entries(groups)){
     if(uSel!=='__all__' && unit!==uSel) continue;
