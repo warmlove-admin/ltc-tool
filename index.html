@@ -17,8 +17,8 @@
 
   <!-- 本地樣式與外掛（加版本參數避免快取） -->
   <link  rel="stylesheet" href="./vendor/tailwind.min.css?v=2025-09-02b">
-  <script defer src="./vendor/xlsx.full.min.js?v=2025-09-02b"></script>
-  <script defer src="./vendor/papaparse.min.js?v=2025-09-02b"></script>
+  <script src="./vendor/xlsx.full.min.js?v=2025-09-02b"></script>
+  <script src="./vendor/papaparse.min.js?v=2025-09-02b"></script>
 
   <style>
     :root{ --ink:#0f172a; --muted:#475569; --line:#e2e8f0; --bg:#f8fafc }
@@ -29,9 +29,11 @@
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace }
     .btn{ border:1px solid var(--line); border-radius:.75rem; padding:.55rem 1rem }
     .btn-primary{ background:#0ea5e9; color:#fff; border-color:#0284c7 }
-    .blk{ background:#fff; border:1px solid var(--line); border-radius:.75rem; margin-bottom:1.1rem; box-shadow:0 2px 8px rgba(15,23,42,.05) }
+    .blk{ background:#fff; border:3px solid #0f172a; border-radius:.9rem; margin-bottom:1.5rem; box-shadow:0 4px 16px rgba(15,23,42,.14); overflow:hidden }
+    .blk-head{ background:#0f172a; color:#fff; font-weight:700; font-size:15px; padding:.65rem 1rem; display:flex; align-items:center; justify-content:space-between; gap:.5rem }
+    .blk-head .sub{ font-weight:400; font-size:12.5px; opacity:.85 }
     .blk-pre{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:13.5px; line-height:1.7; white-space:pre-wrap; overflow-wrap:anywhere; margin:0; padding:.9rem 1rem .4rem; word-break:break-all }
-    .blk-ftr{ padding:.1rem 1rem .85rem }
+    .blk-ftr{ padding:.1rem 1rem .85rem; border-top:2px dashed #e2e8f0; margin-top:.4rem; padding-top:.7rem }
     .blk-ftr .btn{ font-size:13px; padding:.4rem .9rem }
   </style>
 </head>
@@ -317,18 +319,23 @@ function render({groups, unmatched, unknown}){
   populateFilters(groups);
   const uSel=$('#filter-unit').value, mSel=$('#filter-mgr').value;
 
-  const makeBlock=(unit, mgr, cases)=>{ let lines=[]; lines.push(`${unit}（${mgr}）`); let i=1; for(const [cname, bucket] of Object.entries(cases)){ lines.push(`${i}. ${cname}`); for(const it of bucket.items){ lines.push(`     ${it.code} * ${fmtQty(it.qty)} = ${fmtMoney(it.amount)}`); } lines.push('------------------------------'); lines.push(`    本月總使用額度  ${fmtMoney(bucket.month_total||0)}`); lines.push(''); i++; } lines.push('以上個案敬請個管協助額度設定與分配，謝謝!'); return lines.join('\n'); };
+  const makeBlock=(unit, mgr, cases)=>{ const SEP='------------------------------'; let lines=[]; lines.push(`${unit}（${mgr}）`); let i=1; for(const [cname, bucket] of Object.entries(cases)){ lines.push(`${i}. ${cname}`); const sorted=[...(bucket.items||[])].slice().sort((a,b)=> a.code<b.code?-1:1); const ba=sorted.filter(it=>it.code.startsWith('BA')); const ga=sorted.filter(it=>it.code.startsWith('GA')); const sc=sorted.filter(it=>it.code.startsWith('SC')); [...ba,...ga,...sc].forEach(it=>{ lines.push(`     ${it.code} * ${fmtQty(it.qty)} = ${fmtMoney(it.amount)}`); }); lines.push(SEP); const sum=a=>a.reduce((s,it)=>s+(it.amount||0),0); if(ba.length) lines.push(`    BA 本月總使用額度  ${fmtMoney(sum(ba))}`); if(ga.length) lines.push(`    GA 本月總使用額度  ${fmtMoney(sum(ga))}`); if(sc.length) lines.push(`    SC 本月總使用額度  ${fmtMoney(sum(sc))}`); lines.push(''); i++; } lines.push('以上個案敬請個管協助額度設定與分配，謝謝!'); return lines.join('\n'); };
 
   for(const [unit, mgrs] of Object.entries(groups)){
     if(uSel!=='__all__' && unit!==uSel) continue;
     for(const [mgr, cases] of Object.entries(mgrs)){
       if(mSel!=='__all__' && mgr!==mSel) continue;
       const block = makeBlock(unit, mgr, cases); allText.push(block);
+      const idx = allText.length;
       const card=document.createElement('div'); card.className='blk';
+      const head=document.createElement('div'); head.className='blk-head';
+      const title=document.createElement('span'); title.textContent=`【${idx}】${unit}（${mgr}）`;
+      const sub=document.createElement('span'); sub.className='sub'; sub.textContent=`${Object.keys(cases).length} 位個案・複製請按下方按鈕`;
+      head.appendChild(title); head.appendChild(sub);
       const pre=document.createElement('pre'); pre.className='blk-pre'; pre.innerHTML=escHtml(block);
       const ftr=document.createElement('div'); ftr.className='blk-ftr';
-      const btn=document.createElement('button'); btn.className='btn'; btn.textContent='複製本區'; btn.onclick=()=>{ copyText(block, ()=>{ btn.textContent='已複製'; setTimeout(()=>btn.textContent='複製本區',1200); }); };
-      ftr.appendChild(btn); card.appendChild(pre); card.appendChild(ftr); res.appendChild(card);
+      const btn=document.createElement('button'); btn.className='btn'; btn.textContent=`複製【${unit}／${mgr}】本區`; btn.onclick=()=>{ copyText(block, ()=>{ btn.textContent='已複製'; setTimeout(()=>btn.textContent=`複製【${unit}／${mgr}】本區`,1200); }); };
+      ftr.appendChild(btn); card.appendChild(head); card.appendChild(pre); card.appendChild(ftr); res.appendChild(card);
     }
   }
   const all=allText.join('\n\n'); $('#btn-copy-all').disabled = !all.length; $('#btn-download').disabled=!all.length; $('#btn-copy-all').onclick=()=>{ copyText(all, ()=>alert('已複製全部輸出')); }; $('#btn-download').onclick=()=>{ const blob=new Blob([all],{type:'text/plain;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='LTC_不通過清冊對照輸出.txt'; a.click(); URL.revokeObjectURL(a.href); };
@@ -338,7 +345,7 @@ let fileMaster=null, fileReject=null;
 let masterParsed=null, rejectParsed=null;
 async function loadMaster(file){ const ext=(file.name.split('.').pop()||'').toLowerCase(); const isXLS= ['xlsx','xls'].includes(ext); $('#status').textContent='讀取實際服務總表…'; const raw = await parseAny(file, 'auto', false, /*filldown*/true); const cleaned = cleanMaster(raw); masterParsed=cleaned; if(cleaned.unknown.length){ render({groups:{},unmatched:[],unknown:cleaned.unknown}); $('#status').textContent=''; return; } $('#status').textContent=''; }
 async function loadReject(file){ const ext=(file.name.split('.').pop()||'').toLowerCase(); const isXLS= ['xlsx','xls'].includes(ext); $('#status').textContent='讀取不通過清冊…'; const raw = await parseAny(file, isXLS?4:1, /*removeTop*/false, /*filldown*/true); rejectParsed = cleanReject(raw); $('#status').textContent=''; }
-async function run(){ try{ if(!fileMaster || !fileReject){ alert('請先選擇兩個檔案'); return; } await loadMaster(fileMaster); await loadReject(fileReject); if(!masterParsed || !rejectParsed){ alert('檔案載入失敗，請再試一次'); return; } $('#status').textContent='比對與輸出…'; const result = generateMessages(masterParsed.long, masterParsed.wide, rejectParsed); render(result); $('#status').textContent='完成'; }catch(e){ console.error(e); alert('處理失敗：'+e.message); }}
+async function run(){ try{ if(!fileMaster || !fileReject){ alert('請先選擇兩個檔案'); return; } const needXlsx = /xls/.test((fileMaster.name||'').toLowerCase()) || /xls/.test((fileReject.name||'').toLowerCase()); if(needXlsx && typeof XLSX==='undefined'){ alert('元件載入失敗（XLSX 未載入）：請確認 index.html 與 vendor 資料夾在同一層、改用 Chrome/Edge 直接開啟本機 index.html 後按 Ctrl+F5 強制重整一次。你的 .xls 需要這個元件才能讀。'); return; } await loadMaster(fileMaster); await loadReject(fileReject); if(!masterParsed || !rejectParsed){ alert('檔案載入失敗，請再試一次'); return; } $('#status').textContent='比對與輸出…'; const result = generateMessages(masterParsed.long, masterParsed.wide, rejectParsed); render(result); $('#status').textContent='完成'; }catch(e){ console.error(e); alert('處理失敗：'+e.message); }}
 
 function setupDrop(id, inputId, infoId, onPick){ const box=$(id), input=$(inputId), info=$(infoId); ['dragenter','dragover'].forEach(ev=> box.addEventListener(ev, e=>{e.preventDefault(); box.classList.add('drag')})); ['dragleave','drop'].forEach(ev=> box.addEventListener(ev, e=>{e.preventDefault(); box.classList.remove('drag')})); box.addEventListener('click', ()=> input.click()); box.addEventListener('drop', e=>{ const f=e.dataTransfer.files?.[0]; if(f){ input.files=e.dataTransfer.files; input.dispatchEvent(new Event('change')); }}); input.addEventListener('change', ()=>{ const f=input.files?.[0]; info.textContent = f?`已選擇：${f.name}（${Math.round(f.size/1024)} KB）`:''; if(f) onPick(f); }); }
 setupDrop('#drop-master', '#file-master', '#master-info', f=>{ fileMaster=f; masterParsed=null; });
